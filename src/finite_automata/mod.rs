@@ -1,14 +1,17 @@
 //! moudule for finite automata.
 
+trait State: Eq + Copy {}
+trait Symbol: Eq + Copy {}
+
 /// Transition represents the rule that moves from one state to another.
 /// `S` means the state, `T` means the input symbol.
-pub struct Transition<S: Eq + Copy, T:Eq + Copy> {
+pub struct Transition<S: State, T: Symbol> {
   pub state: S,
   pub symbol: T,
   pub next_state: S
 }
 
-impl<S: Eq + Copy, T:Eq + Copy> Transition<S, T> {
+impl<S: State, T: Symbol> Transition<S, T> {
   pub fn new(state: &S, symbol: &T, next_state: &S) -> Transition<S, T> {
     Transition { state: *state, symbol: *symbol, next_state: *next_state }
   }
@@ -25,11 +28,11 @@ impl<S: Eq + Copy, T:Eq + Copy> Transition<S, T> {
 }
 
 /// a collection of transition rules
-pub struct TransitionRelation<S: Eq + Copy, T: Eq + Copy> {
+pub struct TransitionRelation<S: State, T: Symbol> {
   transitions: Vec<Transition<S, T>>
 }
 
-impl<S: Eq + Copy, T: Eq + Copy> TransitionRelation<S, T> {
+impl<S: State, T: Symbol> TransitionRelation<S, T> {
   pub fn new(transitions: Vec<Transition<S, T>>) -> TransitionRelation<S, T> {
     TransitionRelation { transitions: transitions }
   }
@@ -47,13 +50,13 @@ impl<S: Eq + Copy, T: Eq + Copy> TransitionRelation<S, T> {
   }
 }
 
-pub struct DFA<S: Eq + Copy, T: Eq + Copy> {
+pub struct DFA<S: State, T: Symbol> {
   current_state: S,
   accept_states: Vec<S>,
   transition_relation: TransitionRelation<S, T>
 }
 
-impl<S: Eq + Copy, T: Eq + Copy> DFA<S, T> {
+impl<S: State, T: Symbol> DFA<S, T> {
   pub fn new(current_state: &S, accept_states: Vec<S>,
              transition_relation: TransitionRelation<S, T>) -> DFA<S, T> {
     DFA {
@@ -87,8 +90,13 @@ impl<S: Eq + Copy, T: Eq + Copy> DFA<S, T> {
 
 #[cfg(test)]
 mod test {
+  use super::State;
+  use super::Symbol;
   use super::Transition;
   use super::TransitionRelation;
+
+  impl State for int {}
+  impl Symbol for char {}
 
   #[test]
   fn test_transition() {
