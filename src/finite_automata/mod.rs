@@ -44,7 +44,7 @@ impl<S: State, T: Symbol> TransitionRelation<S, T> {
 
   /// get the transition of the state and the symbol
   fn transition_for(&self, state: &S, symbol: &T) -> Option<&Transition<S, T>> {
-    self.transitions.iter().find(|&transition| {
+    self.transitions.iter().find(|transition| {
       transition.is_apply_to(state, symbol)
     })
   }
@@ -70,14 +70,14 @@ impl<S: State, T: Symbol> DFA<S, T> {
   pub fn read_symbol(&mut self, sym: &T) {
     self.current_state = *self.transition_relation
                              .next_state_for(&self.current_state, sym)
-                             .unwrap()
+                             .expect("cannot read the symbol in the current state")
   }
 
-  // pub fn read_symbol_seq(&mut self, syms: Iterator<T>) {
-  //   for sym in syms {
-  //     self.read_symbol(sym);
-  //   }
-  // }
+  pub fn read_symbol_seq<I: Iterator<T>>(&mut self, syms: &mut I) {
+    for ref sym in *syms {
+      self.read_symbol(sym);
+    }
+  }
 
   /// determine whether the current dfa is in an accepted state
   pub fn is_accepting(&self) -> bool {
