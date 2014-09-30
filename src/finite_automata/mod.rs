@@ -1,10 +1,14 @@
 //! moudule for finite automata.
 
-trait State: Eq + Copy {}
-trait Symbol: Eq + Copy {}
+use std::collections::HashSet;
+use std::hash::Hash;
+
+trait State: Eq + Copy + Hash + Clone {}
+trait Symbol: Eq + Copy + Hash + Clone {}
 
 /// Transition represents the rule that moves from one state to another.
 /// `S` means the state, `T` means the input symbol.
+#[deriving(PartialEq, Eq, Hash, Clone)]
 pub struct Transition<S: State, T: Symbol> {
   pub state: S,
   pub symbol: T,
@@ -20,26 +24,21 @@ impl<S: State, T: Symbol> Transition<S, T> {
   pub fn is_apply_to(&self, state: &S, symbol: &T) -> bool {
     self.state == *state && self.symbol == *symbol
   }
-
-  /// get the next state from the transition
-  pub fn follow(&self) -> &S {
-    &self.next_state
-  }
 }
 
 /// a collection of transition rules
 pub struct TransitionRelation<S: State, T: Symbol> {
-  transitions: Vec<Transition<S, T>>
+  transitions: HashSet<Transition<S, T>>
 }
 
 impl<S: State, T: Symbol> TransitionRelation<S, T> {
-  pub fn new(transitions: Vec<Transition<S, T>>) -> TransitionRelation<S, T> {
-    TransitionRelation { transitions: transitions }
+  pub fn new(transitions: &HashSet<Transition<S, T>>) -> TransitionRelation<S, T> {
+    TransitionRelation { transitions: transitions.clone() }
   }
 
   /// get the next state for the input condition
-  pub fn next_state_for(&self, state: &S, symbol: &T) -> Option<&S> {
-    self.transition_for(state, symbol).map(|trans| { trans.follow() })
+  pub fn next_state_for(&self, state: &S, symbol: &T) -> Option<S> {
+    self.transition_for(state, symbol).map(|trans| { trans.next_state })
   }
 
   /// get the transition of the state and the symbol
@@ -50,15 +49,15 @@ impl<S: State, T: Symbol> TransitionRelation<S, T> {
   }
 }
 
-pub struct DFA<S: State, T: Symbol> {
+pub struct DFA<'a, S: 'a + State, T: 'a + Symbol> {
   current_state: S,
-  accept_states: Vec<S>,
-  transition_relation: TransitionRelation<S, T>
+  accept_states: &'a HashSet<S>,
+  transition_relation: &'a TransitionRelation<S, T>
 }
 
-impl<S: State, T: Symbol> DFA<S, T> {
-  pub fn new(current_state: &S, accept_states: Vec<S>,
-             transition_relation: TransitionRelation<S, T>) -> DFA<S, T> {
+impl<'a, S: 'a + State, T: 'a + Symbol> DFA<'a, S, T> {
+  pub fn new(current_state: &S, accept_states: &'a HashSet<S>,
+             transition_relation: &'a TransitionRelation<S, T>) -> DFA<'a, S, T> {
     DFA {
       current_state: *current_state,
       accept_states: accept_states,
@@ -68,13 +67,13 @@ impl<S: State, T: Symbol> DFA<S, T> {
 
   /// read a symbol and change the dfa state
   pub fn read_symbol(&mut self, sym: &T) {
-    self.current_state = *self.transition_relation
+    self.current_state = self.transition_relation
                              .next_state_for(&self.current_state, sym)
                              .expect("cannot read the symbol in the current state")
   }
 
-  pub fn read_symbol_seq<I: Iterator<T>>(&mut self, syms: &mut I) {
-    for ref sym in *syms {
+  pub fn read_symbols<A: Iterator<T>>(&mut self, mut syms: A) {
+    for ref sym in syms {
       self.read_symbol(sym);
     }
   }
@@ -88,33 +87,31 @@ impl<S: State, T: Symbol> DFA<S, T> {
 }
 
 
-#[cfg(test)]
-mod test {
-  use super::State;
-  use super::Symbol;
-  use super::Transition;
-  use super::TransitionRelation;
 
-  impl State for int {}
-  impl Symbol for char {}
+struct DFAModel<S: State, T: Symbol> {
+  start_state: S,
+  accept_states: HashSet<S>,
+  transition_relation: TransitionRelation<S, T>
+}
 
-  #[test]
-  fn test_transition() {
-    let rule = Transition::new(&1i, & 'a', &2i);
-    assert_eq!(2i, rule.next_state);
+impl<S: State, T: Symbol> DFAModel<S, T> {
+  pub fn new(state: &S,
+             accept_states: HashSet<S>,
+             relation: TransitionRelation<S, T>) -> DFAModel<S, T> {
+    DFAModel {
+      start_state: *state,
+      accept_states: accept_states,
+      transition_relation: relation
+    }
   }
 
-  #[test]
-  fn test_transition_relation() {
-    let rules = vec![
-      Transition::new(&1i, & 'a', &1i),
-      Transition::new(&1i, & 'b', &2i),
-      Transition::new(&2i, & 'c', &2i)
-    ];
-    let relation = TransitionRelation::new(rules);
+  fn gen_dfa(&self) -> DFA<S, T> {
+    DFA::new(&self.start_state, &self.accept_states, &self.transition_relation)
+  }
 
-    let some_rule = relation.transition_for(&1i, & 'a').unwrap();
-    assert_eq!(some_rule.state, 1);
-    assert_eq!(some_rule.symbol, 'a');
+  pub fn accept<A: Iterator<T>>(&self, seq: A) -> bool {
+    let mut dfa = self.gen_dfa();
+    dfa.read_symbols(seq);
+    dfa.is_accepting()
   }
 }
