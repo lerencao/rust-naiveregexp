@@ -87,3 +87,91 @@ impl<S: Clone + Eq + Hash, T: Eq + Hash> DFAModel<S, T> {
     }
   }
 }
+
+
+/// The transition relation in NFA,
+/// containing all the rules needed by the NFA.
+pub struct NFATransitions<S, T> {
+  pub rules: HashSet<Rule<S, T>>
+}
+
+impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
+
+  pub fn next_states(&self, states: &HashSet<S>, symbol: &Option<T>) -> HashSet<S> {
+
+    // TODO: find out why the flat_map thing cannot work.
+    // states.iter().flat_map(|state| {
+    //   // error goes here: borrowed value does not live long enough
+    //   self.next_states_for(state, symbol).iter().map(|s| s.clone())
+    // }).collect()
+
+    let mut result = HashSet::new();
+    for state in states.iter() {
+      result.extend(self.next_states_for(state, symbol).iter().map(|s| s.clone()));
+    }
+
+    result
+  }
+
+  /// get the next state for the given state and symbol
+  fn next_states_for(&self, state: &S, symbol: &Option<T>) -> HashSet<S> {
+    self.rules.iter().filter_map(|rule| {
+      if rule.apply_to(state, symbol) { Some(rule.next_state.clone()) } else { None }
+    }).collect()
+  }
+
+  fn rules_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> HashSet<&'a Rule<S, T>> {
+    self.rules.iter()
+              .filter(|rule| { rule.apply_to(state, symbol) })
+              .collect()
+  }
+}
+
+
+struct NFA<'a, S: 'a, T: 'a> {
+  states: HashSet<S>,
+  accept_states: &'a HashSet<S>,
+  transitions: &'a NFATransitions<S, T>
+}
+
+impl<'a, S: Eq + Hash + Clone, T: Eq + Hash> NFA<'a, S, T> {
+  pub fn read_symbol(&mut self, symbol: &Option<T>) {
+    self.states = self.transitions.next_states(&self.states, symbol)
+                                  .iter()
+                                  .map(|state| { state.clone() }).collect()
+  }
+
+  pub fn accepted(&self) -> bool {
+    !self.states.is_disjoint(self.accept_states)
+  }
+}
+
+
+pub struct NFAModel<S, T> {
+  pub start_state: S,
+  pub accept_states: HashSet<S>,
+  pub transitions: NFATransitions<S, T>
+}
+
+impl<S: Eq + Hash + Clone, T: Eq + Hash> NFAModel<S, T> {
+  /// determine whether the given symbols can be accepted by the model
+  pub fn accept<I: Iterator<T>>(&self, mut iter: I) -> bool {
+    let mut dfa = self.gen_nfa();
+    for sym in iter {
+      dfa.read_symbol(&Some(sym));
+    }
+
+    dfa.accepted()
+  }
+
+  /// generate a nfa instance
+  fn gen_nfa(&self) -> NFA<S, T> {
+    let mut start_states = HashSet::new();
+    start_states.insert(self.start_state.clone());
+    NFA {
+      states: start_states,
+      accept_states: &self.accept_states,
+      transitions: &self.transitions
+    }
+  }
+}
