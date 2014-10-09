@@ -96,6 +96,15 @@ pub struct NFATransitions<S, T> {
 }
 
 impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
+  fn empty_move(&self, states: HashSet<S>) -> HashSet<S> {
+    let mut nexts = self.next_states(&states, &None);
+    if nexts.is_subset(&states) {
+      states
+    } else {
+      nexts.extend(states.move_iter());
+      self.empty_move(nexts)
+    }
+  }
 
   pub fn next_states(&self, states: &HashSet<S>, symbol: &Option<T>) -> HashSet<S> {
     states.iter().flat_map(|state| {
@@ -127,9 +136,14 @@ struct NFA<'a, S: 'a, T: 'a> {
 
 impl<'a, S: Eq + Hash + Clone, T: Eq + Hash> NFA<'a, S, T> {
   pub fn read_symbol(&mut self, symbol: &Option<T>) {
+    // do empty moves
+    self.states = self.transitions.empty_move(self.states.clone());
+
     self.states = self.transitions.next_states(&self.states, symbol)
                                   .iter()
-                                  .map(|state| { state.clone() }).collect()
+                                  .map(|state| { state.clone() }).collect();
+
+    self.states = self.transitions.empty_move(self.states.clone());
   }
 
   pub fn accepted(&self) -> bool {
