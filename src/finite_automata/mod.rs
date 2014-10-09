@@ -31,31 +31,30 @@ pub struct DFATransitions<S, T> {
 
 impl<S: Eq + Hash, T: Eq + Hash> DFATransitions<S, T> {
   /// get the next state for the given state and symbol
-  pub fn next_state(&self, state: &S, symbol: &Option<T>) -> Option<&S> {
+  pub fn next_state<'a>(&'a self, state: &S, symbol: &Option<T>) -> Option<&'a S> {
     self.rule_for(state, symbol).map(|rule| &rule.next_state)
   }
 
-  fn rule_for(&self, state: &S, symbol: &Option<T>) -> Option<&Rule<S, T>> {
+  fn rule_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> Option<&'a Rule<S, T>> {
     self.rules.iter().find(|rule| { rule.apply_to(state, symbol) })
   }
 }
 
 /// A running dfa instance, constructed from a DFA model
 pub struct DFA<'a, S: 'a, T: 'a> {
-  state: S, // current state
+  state: &'a S, // current state
   accept_states: &'a HashSet<S>, // set of accept states
   transitions: &'a DFATransitions<S, T>
 }
 
-impl<'a, S: Eq + Hash + Clone, T: Eq + Hash> DFA<'a, S, T> {
+impl<'a, S: Eq + Hash, T: Eq + Hash> DFA<'a, S, T> {
   pub fn accepted(&self) -> bool {
-    self.accept_states.contains(&self.state)
+    self.accept_states.contains(self.state)
   }
 
   pub fn read_symbol(&mut self, sym: &Option<T>) {
-    self.state = self.transitions.next_state(&self.state, sym)
+    self.state = self.transitions.next_state(self.state, sym)
                                  .expect("unknown input symbol")
-                                 .clone()
   }
 }
 
@@ -67,7 +66,7 @@ pub struct DFAModel<S, T> {
   pub transitions: DFATransitions<S, T>
 }
 
-impl<S: Clone + Eq + Hash, T: Eq + Hash> DFAModel<S, T> {
+impl<S: Eq + Hash, T: Eq + Hash> DFAModel<S, T> {
   /// determine whether the given symbols can be accepted by the model
   pub fn accept<I: Iterator<T>>(&self, mut iter: I) -> bool {
     let mut dfa = self.gen_dfa();
@@ -81,7 +80,7 @@ impl<S: Clone + Eq + Hash, T: Eq + Hash> DFAModel<S, T> {
   /// generate a dfa instance
   fn gen_dfa(&self) -> DFA<S, T> {
     DFA {
-      state: self.start_state.clone(),
+      state: &self.start_state,
       accept_states: &self.accept_states,
       transitions: &self.transitions
     }
