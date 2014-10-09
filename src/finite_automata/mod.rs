@@ -101,7 +101,7 @@ impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
     if nexts.is_subset(&states) {
       states
     } else {
-      nexts.extend(states.move_iter());
+      nexts.extend(states.into_iter());
       self.empty_move(nexts)
     }
   }
@@ -109,7 +109,7 @@ impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
   pub fn next_states(&self, states: &HashSet<S>, symbol: &Option<T>) -> HashSet<S> {
     states.iter().flat_map(|state| {
       // NOTE: use `move_iter` instead of `iter`
-      self.next_states_for(state, symbol).move_iter()
+      self.next_states_for(state, symbol).into_iter()
     }).collect()
   }
 
