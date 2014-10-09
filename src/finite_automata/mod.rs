@@ -98,19 +98,10 @@ pub struct NFATransitions<S, T> {
 impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
 
   pub fn next_states(&self, states: &HashSet<S>, symbol: &Option<T>) -> HashSet<S> {
-
-    // TODO: find out why the flat_map thing cannot work.
-    // states.iter().flat_map(|state| {
-    //   // error goes here: borrowed value does not live long enough
-    //   self.next_states_for(state, symbol).iter().map(|s| s.clone())
-    // }).collect()
-
-    let mut result = HashSet::new();
-    for state in states.iter() {
-      result.extend(self.next_states_for(state, symbol).iter().map(|s| s.clone()));
-    }
-
-    result
+    states.iter().flat_map(|state| {
+      // NOTE: use `move_iter` instead of `iter`
+      self.next_states_for(state, symbol).move_iter()
+    }).collect()
   }
 
   /// get the next state for the given state and symbol
