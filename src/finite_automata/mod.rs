@@ -31,11 +31,11 @@ pub struct DFATransitions<S, T> {
 
 impl<S: Eq + Hash, T: Eq + Hash> DFATransitions<S, T> {
   /// get the next state for the given state and symbol
-  pub fn next_state<'a>(&'a self, state: &S, symbol: &Option<T>) -> Option<&'a S> {
+  pub fn next_state(&self, state: &S, symbol: &Option<T>) -> Option<&S> {
     self.rule_for(state, symbol).map(|rule| &rule.next_state)
   }
 
-  fn rule_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> Option<&'a Rule<S, T>> {
+  fn rule_for(&self, state: &S, symbol: &Option<T>) -> Option<&Rule<S, T>> {
     self.rules.iter().find(|rule| { rule.apply_to(state, symbol) })
   }
 }
@@ -95,7 +95,7 @@ pub struct NFATransitions<S, T> {
 }
 
 impl<S: Eq + Hash, T: Eq + Hash> NFATransitions<S, T> {
-  pub fn next_states<'a>(&'a self, states: &HashSet<&'a S>, symbol: &Option<T>) -> HashSet<&'a S> {
+  pub fn next_states(&self, states: &HashSet<&S>, symbol: &Option<T>) -> HashSet<&S> {
     states.iter().flat_map(|&state| {
       // NOTE: use `move_iter` instead of `iter`
       self.next_states_for(state, symbol).into_iter()
@@ -103,7 +103,7 @@ impl<S: Eq + Hash, T: Eq + Hash> NFATransitions<S, T> {
   }
 
   /// get the next state for the given state and symbol
-  fn next_states_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> HashSet<&'a S> {
+  fn next_states_for(&self, state: &S, symbol: &Option<T>) -> HashSet<&S> {
     self.rules.iter().filter_map(|rule| {
       if rule.apply_to(state, symbol) { Some(&rule.next_state) } else { None }
     }).collect()
