@@ -94,59 +94,48 @@ pub struct NFATransitions<S, T> {
   pub rules: HashSet<Rule<S, T>>
 }
 
-impl<S: Eq + Hash + Clone, T: Eq + Hash> NFATransitions<S, T> {
-  fn empty_move(&self, states: HashSet<S>) -> HashSet<S> {
-    let mut nexts = self.next_states(&states, &None);
-    if nexts.is_subset(&states) {
-      states
-    } else {
-      nexts.extend(states.into_iter());
-      self.empty_move(nexts)
-    }
-  }
-
-  pub fn next_states(&self, states: &HashSet<S>, symbol: &Option<T>) -> HashSet<S> {
-    states.iter().flat_map(|state| {
+impl<S: Eq + Hash, T: Eq + Hash> NFATransitions<S, T> {
+  pub fn next_states<'a>(&'a self, states: &HashSet<&'a S>, symbol: &Option<T>) -> HashSet<&'a S> {
+    states.iter().flat_map(|&state| {
       // NOTE: use `move_iter` instead of `iter`
       self.next_states_for(state, symbol).into_iter()
     }).collect()
   }
 
   /// get the next state for the given state and symbol
-  fn next_states_for(&self, state: &S, symbol: &Option<T>) -> HashSet<S> {
+  fn next_states_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> HashSet<&'a S> {
     self.rules.iter().filter_map(|rule| {
-      if rule.apply_to(state, symbol) { Some(rule.next_state.clone()) } else { None }
+      if rule.apply_to(state, symbol) { Some(&rule.next_state) } else { None }
     }).collect()
-  }
-
-  fn rules_for<'a>(&'a self, state: &S, symbol: &Option<T>) -> HashSet<&'a Rule<S, T>> {
-    self.rules.iter()
-              .filter(|rule| { rule.apply_to(state, symbol) })
-              .collect()
   }
 }
 
 
 struct NFA<'a, S: 'a, T: 'a> {
-  states: HashSet<S>,
+  states: HashSet<&'a S>,
   accept_states: &'a HashSet<S>,
   transitions: &'a NFATransitions<S, T>
 }
 
-impl<'a, S: Eq + Hash + Clone, T: Eq + Hash> NFA<'a, S, T> {
+impl<'a, S: Eq + Hash, T: Eq + Hash> NFA<'a, S, T> {
+  fn empty_move(&mut self) {
+    let nexts = self.transitions.next_states(&self.states, &None);
+    if !nexts.is_subset(&self.states) {
+      self.states.extend(nexts.into_iter());
+      self.empty_move();
+    }
+  }
+
   pub fn read_symbol(&mut self, symbol: &Option<T>) {
     // do empty moves
-    self.states = self.transitions.empty_move(self.states.clone());
-
-    self.states = self.transitions.next_states(&self.states, symbol)
-                                  .iter()
-                                  .map(|state| { state.clone() }).collect();
-
-    self.states = self.transitions.empty_move(self.states.clone());
+    self.empty_move();
+    self.states = self.transitions.next_states(&self.states, symbol);
+    self.empty_move();
   }
 
   pub fn accepted(&self) -> bool {
-    !self.states.is_disjoint(self.accept_states)
+    //NOTE: or use `self.accept_states.iter().any(|state| self.states.contains(&state))`
+    self.states.iter().any(|&state| self.accept_states.contains(state))
   }
 }
 
@@ -157,7 +146,7 @@ pub struct NFAModel<S, T> {
   pub transitions: NFATransitions<S, T>
 }
 
-impl<S: Eq + Hash + Clone, T: Eq + Hash> NFAModel<S, T> {
+impl<S: Eq + Hash, T: Eq + Hash> NFAModel<S, T> {
   /// determine whether the given symbols can be accepted by the model
   pub fn accept<I: Iterator<T>>(&self, mut iter: I) -> bool {
     let mut dfa = self.gen_nfa();
@@ -171,7 +160,7 @@ impl<S: Eq + Hash + Clone, T: Eq + Hash> NFAModel<S, T> {
   /// generate a nfa instance
   fn gen_nfa(&self) -> NFA<S, T> {
     let mut start_states = HashSet::new();
-    start_states.insert(self.start_state.clone());
+    start_states.insert(&self.start_state);
     NFA {
       states: start_states,
       accept_states: &self.accept_states,
