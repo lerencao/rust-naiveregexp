@@ -56,7 +56,7 @@ pub struct Concatenate<S, T> {
 /// implement Show trait for Concatenate
 impl<S: Show, T: Show> Show for Concatenate<S, T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}|{}", self.first, self.second)
+    write!(f, "{}{}", self.first, self.second)
   }
 }
 
@@ -65,7 +65,22 @@ impl<S, T> Pattern for Concatenate<S, T>
   fn precedence(&self) -> uint { 1 }
 }
 
+pub struct Choose<S, T> {
+  pub first: S,
+  pub second: T
+}
 
+impl<S, T> Show for Choose<S, T>
+  where S: Show, T: Show {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}|{}", self.first, self.second)
+  }
+}
+
+impl<S, T> Pattern for Choose<S, T>
+  where S: Show + Pattern, T: Show + Pattern {
+  fn precedence(&self) -> uint { 0 }
+}
 
 #[cfg(test)]
 mod test {
@@ -73,6 +88,7 @@ mod test {
   use super::Empty;
   use super::Literal;
   use super::Concatenate;
+  use super::Choose;
 
   #[test]
   fn test_empty() {
@@ -94,6 +110,15 @@ mod test {
     let concat = Concatenate { first: Empty, second: literal };
 
     assert_eq!(concat.precedence(), 1);
-    assert_eq!(concat.to_string().as_slice(), "|a");
+    assert_eq!(concat.to_string().as_slice(), "a");
+  }
+
+  #[test]
+  fn test_choose() {
+    let literal = Literal { character: 'a' };
+    let choose = Choose { first: Empty, second: literal };
+
+    assert_eq!(choose.precedence(), 0);
+    assert_eq!(choose.to_string().as_slice(), "|a");
   }
 }
