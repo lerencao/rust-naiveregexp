@@ -82,6 +82,23 @@ impl<S, T> Pattern for Choose<S, T>
   fn precedence(&self) -> uint { 0 }
 }
 
+pub struct Repeat<T> {
+  pub pattern: T
+}
+
+impl<T> Show for Repeat<T>
+  where T: Show + Pattern {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}*", self.pattern.bracket(self.precedence()))
+  }
+}
+
+impl<T> Pattern for Repeat<T>
+  where T: Show + Pattern {
+  fn precedence(&self) -> uint { 2 }
+}
+
+
 #[cfg(test)]
 mod test {
   use super::Pattern;
@@ -89,6 +106,7 @@ mod test {
   use super::Literal;
   use super::Concatenate;
   use super::Choose;
+  use super::Repeat;
 
   #[test]
   fn test_empty() {
@@ -120,5 +138,15 @@ mod test {
 
     assert_eq!(choose.precedence(), 0);
     assert_eq!(choose.to_string().as_slice(), "|a");
+  }
+
+  #[test]
+  fn test_repeat() {
+    let literal = Literal { character: 'a' };
+    let choose = Choose { first: Empty, second: literal };
+    let repeat = Repeat { pattern: choose };
+
+    assert_eq!(repeat.precedence(), 2);
+    assert_eq!(repeat.to_string().as_slice(), "(|a)*");
   }
 }
